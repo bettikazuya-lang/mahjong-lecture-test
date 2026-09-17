@@ -195,7 +195,7 @@ rt{font-size:.46em;font-weight:700;color:var(--sub);letter-spacing:-.04em;line-h
 
 /* ② 数字：牌つきの横棒（何通り・何枚） */
 .rank{padding:4px 14px}
-.rank .r{display:grid;grid-template-columns:auto 1fr 38px;align-items:center;gap:12px;min-height:76px}
+.rank .r{display:grid;grid-template-columns:auto 1fr minmax(38px,auto);align-items:center;gap:12px;min-height:76px}
 .rank .r+.r{border-top:1px dashed var(--line)}
 .rank .tg{display:flex;gap:2px;min-width:62px}
 .rank .nm{font-size:15px;font-weight:700;line-height:1.3}
@@ -554,9 +554,9 @@ function bird(){
   return g+'</g>';
 }
 function face(code){
-  var t=code[0], n=code[1], h='';
+  var t=code[0], n=code[1], h='', aka=(code[2]==='r');
   if(t==='m'){
-    h='<text x="30" y="34" text-anchor="middle" font-size="30" font-family="'+TILE_FONT+'" fill="'+BK+'" stroke="'+BK+'" stroke-width="1.3" stroke-linejoin="round">'+KAN[+n-1]+'</text>'+
+    h='<text x="30" y="34" text-anchor="middle" font-size="30" font-family="'+TILE_FONT+'" fill="'+(aka?RD:BK)+'" stroke="'+(aka?RD:BK)+'" stroke-width="1.3" stroke-linejoin="round">'+KAN[+n-1]+'</text>'+
       '<text x="30" y="70" text-anchor="middle" font-size="33" font-family="'+TILE_FONT+'" fill="'+RD+'" stroke="'+RD+'" stroke-width="1.3" stroke-linejoin="round">萬</text>';
   } else if(t==='p'){
     if(+n===1){
@@ -568,7 +568,7 @@ function face(code){
       var num=+n;
       P_POS[num].forEach(function(p,i){
         var red=(num===3&&i===1)||(num===5&&i===2)||(num===6&&i>=2)||(num===7&&i>=3)||(num===9&&i>=3&&i<=5);
-        h+=pin(fx(p[0]),fy(p[1]),P_R[num],red?RD:BK);
+        h+=pin(fx(p[0]),fy(p[1]),P_R[num],(red||aka)?RD:BK);
       });
     }
   } else if(t==='s'){
@@ -580,7 +580,7 @@ function face(code){
     } else {
       S_POS[k].forEach(function(p,i){
         var red=(k===5&&i===2)||(k===7&&i===0)||(k===9&&(i===1||i===4||i===7));
-        h+=stick(fx(p[0]),fy(p[1]),S_H[k],red?RD:GR);
+        h+=stick(fx(p[0]),fy(p[1]),S_H[k],(red||aka)?RD:GR);
       });
     }
   } else if(t==='z'){
@@ -596,7 +596,7 @@ function renderTiles(root){
     el.className='tile '+(el.getAttribute('data-sz')||'')+(st?' '+st:'');
     el.innerHTML=face(code);
     el.setAttribute('role','img');
-    el.setAttribute('aria-label', code[0]==='z'?HON_NAME[code[1]]:KAN[+code[1]-1].replace('伍','五')+TILE_NAME[code[0]]);
+    el.setAttribute('aria-label', code[0]==='z'?HON_NAME[code[1]]:(code[2]==='r'?'赤':'')+KAN[+code[1]-1].replace('伍','五')+TILE_NAME[code[0]]);
   });
 }
 
