@@ -361,9 +361,35 @@ body{margin:0;background:#E7E3D8;color:var(--ink);overflow:hidden;font-family:'Z
 .it.cur{background:var(--pink-soft)}
 .it.cur .n{color:var(--pink)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-</style></head><body>
+</style>
+<style id="polish">/* 仕上げ（2026-09-29 デザイン理論の四大原則で見直し）— カード版デッキにだけ効かせる */
+
+/* 反復の整理：カード上の「◯◯編 第N回 タイトル 01/18」は上部バーと同じ情報なので消し、
+   回の名前は上部バーに1回だけ出す。空いた分は本文に回す */
+.stage .c .pg{display:none}
+.stage .c .body{padding-top:26px}
+.top .ttl{line-height:1.25}
+.top .ttl small{display:block;font-size:10.5px;font-weight:700;color:var(--sub)}
+
+/* 整列：日本語は文節で改行し、1〜2文字だけの行を作らない。
+   polish.js が文節の頭に wbr を入れて .jp-ph を付け、末尾の短い行は .nw でまとめる */
+.jp-ph{word-break:keep-all;overflow-wrap:break-word}
+.nw{white-space:nowrap}
+
+/* 対比：チェックリストは生徒が自分で読んで印をつける所。本文（16px）より小さくしない */
+.stage .chk label{font-size:16px;padding:12px 0}
+
+/* 表紙のキャラは、位置が決まってから出す（文字に重なった状態を一瞬も見せない） */
+.polishing .stage .c:first-child img.ch{visibility:hidden}
+
+/* 近接：「もっと詳しく」の小見出しは横並び（flex）だったため、ふりがな付きの語の後ろにすき間が入っていた。
+   1本の文として流し、左のピンクの印だけ行頭に置く */
+.dt h3{display:block}
+.dt h3::before{display:inline-block;vertical-align:-3px;margin-right:8px}
+</style>
+</head><body>
 <div id="deck">
- <header class="top"><button class="ui" data-toc>☰ 目次</button><span class="ttl">順位とオーラス</span><span class="ct num"></span></header>
+ <header class="top"><button class="ui" data-toc>☰ 目次</button><span class="ttl"><small>玉の間編 第6回</small>順位とオーラス</span><span class="ct num"></span></header>
  <div class="pbar"><i></i></div>
  <main class="stage"><section class="c" id="c1" aria-label="1枚目"><div class="edge"></div><div class="pg"><span>玉の間編 <b>第6回</b> 順位とオーラス</span><span class="num">01 / 16</span></div><div class="body">
  <div class="no">玉の間編 ・ 第6回</div>
@@ -682,4 +708,181 @@ renderTiles(); document.fonts && document.fonts.ready.then(function(){renderTile
   var h=parseInt((location.hash||'').slice(1),10);
   show(h>=1&&h<=N?h-1:0);
 })();
-</script></body></html>
+</script>
+<script id="polish">// 仕上げ（2026-09-29）：① 1〜2文字だけの行を作らない ② 表紙のキャラを文字に重ねない
+(function(){
+  var root = document.documentElement;
+  root.classList.add('polishing');
+
+  // 要素の文字を、行ごとの箱にまとめる（ふりがなは数えない）
+  function lines(el){
+    var rg = document.createRange(), L = [];
+    var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    while (w.nextNode()){
+      var t = w.currentNode;
+      if (!t.textContent.trim() || t.parentNode.closest('rt')) continue;
+      rg.selectNodeContents(t);
+      [].forEach.call(rg.getClientRects(), function(q){
+        if (!q.width) return;
+        var hit = null;
+        L.forEach(function(x){ if (q.top < x.b - 2 && q.bottom > x.t + 2) hit = x; });
+        if (hit){ hit.l = Math.min(hit.l, q.left); hit.r = Math.max(hit.r, q.right); hit.t = Math.min(hit.t, q.top); hit.b = Math.max(hit.b, q.bottom); }
+        else L.push({l:q.left, r:q.right, t:q.top, b:q.bottom});
+      });
+    }
+    return L.sort(function(a, b){ return a.t - b.t; });
+  }
+
+  // 文節の頭か（漢字・カタカナ・数字などが、ひらがなや記号のあとに来る所）
+  var HIRA = /[ぁ-ゟ]/, AFTER = /[、。・」）)／\/\s→]/, NOTBEFORE = /[、。・」）)ー]/,
+      CONTENT = /[一-鿿゠-ヿ0-9０-９A-Za-zＡ-Ｚ々〇「（(]/;
+  function isHead(S, p){ return p <= 0 || (!NOTBEFORE.test(S[p]) && (AFTER.test(S[p - 1]) || (CONTENT.test(S[p]) && HIRA.test(S[p - 1])))); }
+
+  // 末尾の k 文字以上（ふりがな以外）を、文節の頭から1つの nowrap にまとめる
+  function wrapTail(el, k){
+    var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), ts = [], S = '';
+    while (w.nextNode()) if (!w.currentNode.parentNode.closest('rt')){ ts.push([w.currentNode, S.length]); S += w.currentNode.textContent; }
+    var end = S.replace(/\s+$/, '').length, cut = end - k;
+    if (cut <= 0) return null;
+    for (var p = cut; p > Math.max(0, end - 12); p--) if (isHead(S, p)){ cut = p; break; }
+    var node = null, off = 0;
+    for (var i = ts.length - 1; i >= 0; i--) if (ts[i][1] <= cut){ node = ts[i][0]; off = cut - ts[i][1]; break; }
+    if (!node) return null;
+    var rg = document.createRange(), rb = node.parentNode.closest('ruby');
+    if (rb && el.contains(rb)) rg.setStartBefore(rb); else rg.setStart(node, off);
+    rg.setEnd(el, el.childNodes.length);
+    var sp = document.createElement('span'); sp.className = 'nw';
+    var frag = rg.extractContents();
+    [].forEach.call(frag.querySelectorAll('wbr'), function(x){ x.parentNode.removeChild(x); });  // nowrap の中でも wbr では切れるため外す
+    sp.appendChild(frag); el.appendChild(sp);
+    return sp;
+  }
+  function unwrap(sp){ var p = sp.parentNode; while (sp.firstChild) p.insertBefore(sp.firstChild, sp); p.removeChild(sp); p.normalize(); }
+
+  var SEL = '.h,.p,.end,.say,.t1,.t2,.nm,.do,.when,.res,.who,.sit,.tx,.eq,.why,.cap,.gap,.lotcap,.hand-cap,' +
+            '.chk label>span,.three li,.mini li,.rs li,.fbox,.dt p,.dt li,.dt h3,.it>span:last-child';
+  // 文節の頭にだけ改行してよい印（wbr）を入れ、それ以外では改行しない（.jp-ph = keep-all）
+  // 箱の位置・幅（本人と親）。表や横並びの列が押し広げられたら元に戻すために測る
+  function box(el){ var a = el.getBoundingClientRect(), b = el.parentElement.getBoundingClientRect(); return [a.left, a.width, b.left, b.width].map(Math.round).join(); }
+  function phraseAll(els){          // 測る→まとめて入れる→まとめて測る（1つずつ測るとスマホで遅い）
+    els = els.filter(function(el){ return !el.classList.contains('jp-ph') && !el.classList.contains('jp-skip'); });
+    var before = els.map(box), saved = els.map(function(el){ return el.innerHTML; });
+    els.forEach(phraseRaw);
+    els.forEach(function(el, k){
+      if (box(el) !== before[k] || el.scrollWidth > el.clientWidth + 1){
+        el.innerHTML = saved[k]; el.classList.remove('jp-ph'); el.classList.add('jp-skip');
+      }
+    });
+  }
+  function phraseRaw(el){
+    var atoms = [], w = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode: function(n){
+        if (n.nodeType === 1) return n.matches('ruby,rt,.num,.nw,svg') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+        return NodeFilter.FILTER_ACCEPT;
+      }});
+    while (w.nextNode()) atoms.push(w.currentNode);
+    // ルビ（ふりがな付きの語）は1つの塊として扱う
+    [].forEach.call(el.querySelectorAll('ruby'), function(r){ atoms.push(r); });
+    atoms.sort(function(a, b){ return a === b ? 0 : (a.compareDocumentPosition(b) & 4 ? -1 : 1); });
+    var prev = '';
+    atoms.forEach(function(a){
+      if (a.nodeType === 1){        // ruby
+        var base = a.firstChild && a.firstChild.nodeType === 3 ? a.firstChild.textContent : a.textContent;
+        if (prev && isHead(prev + base, 1)) a.parentNode.insertBefore(document.createElement('wbr'), a);
+        prev = base.slice(-1) || prev; return;
+      }
+      var s = a.textContent, parts = [], last = 0;
+      for (var i = 0; i < s.length; i++){
+        var S = (i ? s[i - 1] : prev) + s[i];
+        if ((i || prev) && isHead(S, 1) && !/\s/.test(s[i])) { parts.push(s.slice(last, i)); last = i; }
+      }
+      if (s.trim()) prev = s.replace(/\s+$/, '').slice(-1) || prev;
+      if (!parts.length) return;
+      parts.push(s.slice(last));
+      var f = document.createDocumentFragment();
+      parts.forEach(function(p, k){ if (k) f.appendChild(document.createElement('wbr')); if (p) f.appendChild(document.createTextNode(p)); });
+      a.parentNode.replaceChild(f, a);
+    });
+    el.classList.add('jp-ph');
+  }
+
+  // 中の文字が1つの流れになっている箱だけ触る（flex・grid の箱は、印を入れると横に並んでしまう）
+  function flowing(el){ return !/flex|grid/.test(getComputedStyle(el).display) && !el.querySelector('div,p,ul,ol,li,section'); }
+  function fixWidows(scope){
+    var els = [].filter.call(scope.querySelectorAll(SEL), flowing);
+    phraseAll(els);
+    els.forEach(function(el){
+      if (el.querySelector('img,[data-t]') || el.querySelector('.nw')) return;
+      var L = lines(el); if (L.length < 2) return;
+      var fs = parseFloat(getComputedStyle(el).fontSize), last = L[L.length - 1];
+      var chars = Math.round((last.r - last.l) / fs);
+      if (chars > 2) return;
+      var b0 = box(el), sp = wrapTail(el, chars + 3);
+      if (!sp) return;
+      var L2 = lines(el), l2 = L2[L2.length - 1];
+      // 行が増えた・はみ出した・まだ短いときは元に戻す
+      if (L2.length > L.length || el.scrollWidth > el.clientWidth + 1 || (l2.r - l2.l) < fs * 1.5 || box(el) !== b0){
+        unwrap(sp); if (el.classList.contains('jp-ph')){ el.classList.remove('jp-ph'); phraseRaw(el); }   // 外した wbr を付け直す
+      }
+    });
+  }
+
+  // 表紙：キャラが見出し・リードの文字に重なっていたら、文字の下へずらす（入らなければ縮める）
+  // 目に見える中身の箱（枠や背景のある箱はそのまま、ない入れ物は中の文字と牌）
+  function inked(el){
+    var cs = getComputedStyle(el);
+    if (parseFloat(cs.borderTopWidth) > 0 || cs.backgroundColor !== 'rgba(0, 0, 0, 0)') return [el.getBoundingClientRect()];
+    var out = lines(el).map(function(x){ return {left:x.l, right:x.r, top:x.t, bottom:x.b}; });
+    [].forEach.call(el.querySelectorAll('[data-t],img'), function(t){ out.push(t.getBoundingClientRect()); });
+    return out;
+  }
+  function placeCover(){
+    var c = document.querySelector('.stage .c'); if (!c) return;
+    var body = c.querySelector('.body'), br = body.getBoundingClientRect();
+    [].forEach.call(c.querySelectorAll('img.ch'), function(im){
+      var ir = im.getBoundingClientRect(); if (!ir.width || !ir.height) return;
+      var L = [], obst = [];
+      [].forEach.call(body.querySelectorAll('.no,.h,.p'), function(el){ L = L.concat(lines(el)); });
+      [].forEach.call(body.children, function(ch){
+        if (ch === im || ch.tagName === 'TEMPLATE' || ch.matches('.no,.h,.p')) return;
+        obst = obst.concat(inked(ch));
+      });
+      var h = ir.height, wdt = ir.width, gap = 8;
+      // 画像の左右の透明な余白を除いた、キャラ（とボード）の幅。右端は固定なので右から測る
+      var coreL = function(){ return ir.right - wdt * .94; }, coreR = ir.right - wdt * .1;
+      var top = ir.top - br.top, moved = false;
+      for (var k = 0; k < 6; k++){      // 文字にかぶる限り、下へずらす
+        var low = null, t = br.top + top, b = t + h, l = coreL();
+        L.forEach(function(x){ if (x.r > l - gap && x.l < coreR && x.b > t && x.t < b) low = Math.max(low || 0, x.b); });
+        if (low === null) break;
+        top = low - br.top + 14; moved = true;
+      }
+      if (!moved) return;
+      var limit = br.height - 12, l2 = coreL();
+      obst.forEach(function(r){
+        if (r.bottom - br.top > top && r.right > l2 && r.left < coreR && r.top - br.top < limit) limit = Math.max(top + 1, r.top - br.top - 8);
+      });
+      if (top + h > limit){ var s = Math.max(.75, (limit - top) / h); wdt *= s; h *= s; }
+      im.style.top = Math.round(top) + 'px'; im.style.bottom = 'auto'; im.style.width = Math.round(wdt) + 'px';
+    });
+  }
+
+  function run(){
+    var t0 = Date.now();
+    try {
+      [].forEach.call(document.querySelectorAll('.nw'), unwrap);
+      fixWidows(document.querySelector('.stage') || document.body);
+      placeCover();
+    } finally { root.classList.remove('polishing'); root.setAttribute('data-polish-ms', Date.now() - t0); }
+  }
+  var done = false;
+  function once(){ if (!done){ done = true; run(); } }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(once); else window.addEventListener('load', once);
+  setTimeout(once, 2500);
+
+  // 「もっと詳しく」は開くたびに中身が作られるので、そのつど整える
+  var more = document.querySelector('#more .pb');
+  if (more && window.MutationObserver) new MutationObserver(function(){ requestAnimationFrame(function(){ fixWidows(more); }); }).observe(more, {childList:true});
+})();
+</script>
+</body></html>
