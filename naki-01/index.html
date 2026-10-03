@@ -400,7 +400,60 @@ body{margin:0;background:#E7E3D8;color:var(--ink);overflow:hidden;font-family:'Z
 .dt .verdict rt{color:rgba(255,255,255,.72)}
 .dt .verdict b{line-height:1.3}
 .jp-g{white-space:nowrap}
-</style></head><body>
+</style><style id="polish">/* 仕上げ（2026-09-29 デザイン理論の四大原則で見直し）— カード版デッキにだけ効かせる */
+
+/* 反復の整理：カード上の「◯◯編 第N回 タイトル 01/18」は上部バーと同じ情報なので消し、
+   回の名前は上部バーに1回だけ出す。空いた分は本文に回す */
+.stage .c .pg{display:none}
+.stage .c .body{padding-top:26px}
+.top .ttl{line-height:1.25}
+.top .ttl small{display:block;font-size:10.5px;font-weight:700;color:var(--sub)}
+
+/* 整列：日本語は文節で改行し、1〜2文字だけの行を作らない。
+   polish.js が文節の頭に wbr を入れて .jp-ph を付け、末尾の短い行は .nw でまとめる */
+.jp-ph{word-break:keep-all;overflow-wrap:break-word}
+.nw{white-space:nowrap}
+
+/* 対比：チェックリストは生徒が自分で読んで印をつける所。本文（16px）より小さくしない */
+.stage .chk label{font-size:16px;padding:12px 0}
+
+/* 表紙のキャラは、位置が決まってから出す（文字に重なった状態を一瞬も見せない） */
+.polishing .stage .c:first-child img.ch{visibility:hidden}
+
+/* 近接：「もっと詳しく」の小見出しは横並び（flex）だったため、ふりがな付きの語の後ろにすき間が入っていた。
+   1本の文として流し、左のピンクの印だけ行頭に置く */
+.dt h3{display:block}
+.dt h3::before{display:inline-block;vertical-align:-3px;margin-right:8px}
+
+/* ── もっと詳しく（2026-09-29 2回目：べっちさん「詳細の部分がまだまだ」） ── */
+/* 整列：右寄せのまま何行にも折れる行は読めない。折れる箱は全行を「小見出し＋左揃えの本文」にそろえる（polish.js が .calc-v を付ける） */
+.dt .calc.calc-v .r{display:block;padding:10px 12px}
+.dt .calc.calc-v .r>span{display:block;font-size:12.5px;color:var(--sub);line-height:1.5}
+.dt .calc.calc-v .r>span small{display:inline;margin-left:6px}
+.dt .calc.calc-v .r>span [data-t]{vertical-align:middle}
+.dt .calc.calc-v .r b{display:block;text-align:left;font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;line-height:1.6;margin-top:3px;text-wrap:pretty}
+.dt .calc.calc-v .r.hot>span{color:#B8185A}
+/* 表：「押/す」のような1文字ずつの折れをなくす */
+.dt td,.dt th{word-break:keep-all;overflow-wrap:anywhere}
+.dt .nw1{white-space:nowrap}
+/* 対比：紺の答え枠の上のふりがなは、灰色だと読めない */
+.dt .verdict rt{color:rgba(255,255,255,.72)}
+.dt .verdict b{line-height:1.3}
+.jp-g{white-space:nowrap}
+
+/* 見やすさ v2（2026-10-03）：①小さすぎる字の下限を上げる ②カードの空いた高さの分だけ、図をまるごと拡大する（polish.js が --z を付ける）。
+   図の補足は、まとめの一言（18px）を超えないよう、拡大は最大1.25倍 */
+.fl .t2{font-size:13.5px;line-height:1.5}
+.fl .lv,.ladder .lv{font-size:12.5px}
+.sp .t2{font-size:14px}
+.hand-cap{font-size:14px;line-height:1.6}
+.grow .gh span{font-size:13px}
+.lbk small{font-size:11.5px}
+.rank .nm small{font-size:12.5px}
+.sit{font-size:15px}
+.zf{zoom:var(--z,1)}
+</style>
+</head><body>
 <div id="deck">
  <header class="top"><button class="ui" data-toc>☰ 目次</button><span class="ttl"><small>鳴き編 第1回</small>喰いタンの鳴き方</span><span class="ct num"></span></header>
  <div class="pbar"><i></i></div>
@@ -1114,4 +1167,356 @@ renderTiles(); document.fonts && document.fonts.ready.then(function(){renderTile
   var more = document.querySelector('#more .pb');
   if (more && window.MutationObserver) new MutationObserver(function(){ requestAnimationFrame(function(){ polishPanel(more); }); }).observe(more, {childList:true});
 })();
-</script></body></html>
+</script><script id="polish">// 仕上げ（2026-09-29）：① 1〜2文字だけの行を作らない ② 表紙のキャラを文字に重ねない
+(function(){
+  var root = document.documentElement;
+  root.classList.add('polishing');
+
+  // 要素の文字を、行ごとの箱にまとめる（ふりがなは数えない）
+  function lines(el){
+    var rg = document.createRange(), L = [];
+    var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    while (w.nextNode()){
+      var t = w.currentNode;
+      if (!t.textContent.trim() || t.parentNode.closest('rt')) continue;
+      rg.selectNodeContents(t);
+      [].forEach.call(rg.getClientRects(), function(q){
+        if (!q.width) return;
+        var hit = null;
+        L.forEach(function(x){ if (q.top < x.b - 2 && q.bottom > x.t + 2) hit = x; });
+        if (hit){ hit.l = Math.min(hit.l, q.left); hit.r = Math.max(hit.r, q.right); hit.t = Math.min(hit.t, q.top); hit.b = Math.max(hit.b, q.bottom); }
+        else L.push({l:q.left, r:q.right, t:q.top, b:q.bottom});
+      });
+    }
+    return L.sort(function(a, b){ return a.t - b.t; });
+  }
+
+  // 文節の頭か（漢字・カタカナ・数字などが、ひらがなや記号のあとに来る所）
+  var HIRA = /[ぁ-ゟ]/, AFTER = /[、。・」）)／\/\s→]/, NOTBEFORE = /[、。・」）)ー]/,
+      CONTENT = /[一-鿿゠-ヿ0-9０-９A-Za-zＡ-Ｚ々〇「（(]/;
+  function isHead(S, p){ return p <= 0 || (!NOTBEFORE.test(S[p]) && (AFTER.test(S[p - 1]) || (CONTENT.test(S[p]) && HIRA.test(S[p - 1])))); }
+
+  // 末尾の k 文字以上（ふりがな以外）を、文節の頭から1つの nowrap にまとめる
+  function wrapTail(el, k){
+    var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), ts = [], S = '';
+    while (w.nextNode()) if (!w.currentNode.parentNode.closest('rt')){ ts.push([w.currentNode, S.length]); S += w.currentNode.textContent; }
+    var end = S.replace(/\s+$/, '').length, cut = end - k;
+    if (cut <= 0) return null;
+    for (var p = cut; p > Math.max(0, end - 12); p--) if (isHead(S, p)){ cut = p; break; }
+    var node = null, off = 0;
+    for (var i = ts.length - 1; i >= 0; i--) if (ts[i][1] <= cut){ node = ts[i][0]; off = cut - ts[i][1]; break; }
+    if (!node) return null;
+    var rg = document.createRange(), rb = node.parentNode.closest('ruby');
+    if (rb && el.contains(rb)) rg.setStartBefore(rb); else rg.setStart(node, off);
+    rg.setEnd(el, el.childNodes.length);
+    var sp = document.createElement('span'); sp.className = 'nw';
+    var frag = rg.extractContents();
+    [].forEach.call(frag.querySelectorAll('wbr'), function(x){ x.parentNode.removeChild(x); });  // nowrap の中でも wbr では切れるため外す
+    sp.appendChild(frag); el.appendChild(sp);
+    return sp;
+  }
+  function unwrap(sp){ var p = sp.parentNode; while (sp.firstChild) p.insertBefore(sp.firstChild, sp); p.removeChild(sp); p.normalize(); }
+
+  var SEL = '.h,.p,.end,.say,.t1,.t2,.nm,.do,.when,.res,.who,.sit,.tx,.eq,.why,.cap,.gap,.lotcap,.hand-cap,' +
+            '.chk label>span,.three li,.mini li,.rs li,.fbox,.dt p,.dt li,.dt h3,.dt .verdict b,.dt .calc b,.ph b,.it>span:last-child';
+  // 文節の頭にだけ改行してよい印（wbr）を入れ、それ以外では改行しない（.jp-ph = keep-all）
+  // 箱の位置・幅（本人と親）。表や横並びの列が押し広げられたら元に戻すために測る
+  function box(el){ var a = el.getBoundingClientRect(), b = el.parentElement.getBoundingClientRect(); return [a.left, a.width, b.left, b.width].map(Math.round).join(); }
+  function phraseAll(els){          // 測る→まとめて入れる→まとめて測る（1つずつ測るとスマホで遅い）
+    els = els.filter(function(el){ return !el.classList.contains('jp-ph') && !el.classList.contains('jp-skip'); });
+    var before = els.map(box), saved = els.map(function(el){ return el.innerHTML; });
+    els.forEach(phraseRaw);
+    els.forEach(function(el, k){
+      if (box(el) !== before[k] || el.scrollWidth > el.clientWidth + 1){
+        el.innerHTML = saved[k]; el.classList.remove('jp-ph'); el.classList.add('jp-skip');
+      }
+    });
+  }
+  function phraseRaw(el){
+    var atoms = [], w = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode: function(n){
+        if (n.nodeType === 1) return n.matches('ruby,rt,.num,.nw,svg') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+        return NodeFilter.FILTER_ACCEPT;
+      }});
+    while (w.nextNode()) atoms.push(w.currentNode);
+    // ルビ（ふりがな付きの語）は1つの塊として扱う
+    [].forEach.call(el.querySelectorAll('ruby'), function(r){ atoms.push(r); });
+    atoms.sort(function(a, b){ return a === b ? 0 : (a.compareDocumentPosition(b) & 4 ? -1 : 1); });
+    var prev = '';
+    atoms.forEach(function(a){
+      if (a.nodeType === 1){        // ruby
+        var base = a.firstChild && a.firstChild.nodeType === 3 ? a.firstChild.textContent : a.textContent;
+        if (prev && isHead(prev + base, 1)) a.parentNode.insertBefore(document.createElement('wbr'), a);
+        prev = base.slice(-1) || prev; return;
+      }
+      var s = a.textContent, parts = [], last = 0;
+      for (var i = 0; i < s.length; i++){
+        var S = (i ? s[i - 1] : prev) + s[i];
+        if ((i || prev) && isHead(S, 1) && !/\s/.test(s[i])) { parts.push(s.slice(last, i)); last = i; }
+      }
+      if (s.trim()) prev = s.replace(/\s+$/, '').slice(-1) || prev;
+      if (!parts.length) return;
+      parts.push(s.slice(last));
+      var f = document.createDocumentFragment();
+      parts.forEach(function(p, k){ if (k) f.appendChild(document.createElement('wbr')); if (p) f.appendChild(document.createTextNode(p)); });
+      a.parentNode.replaceChild(f, a);
+    });
+    // ふりがな付きの字の前後では、keep-all でも改行されてしまう（「3／翻以上」）。
+    // 改行してよい印（wbr）から次の印までを、ふりがなを含むときだけ1つにまとめる
+    [].forEach.call(el.querySelectorAll('ruby'), function(rb){
+      if (rb.parentNode.classList && rb.parentNode.classList.contains('jp-g')) return;
+      var run = [rb], n = rb.previousSibling;
+      while (n && (n.nodeType === 3 || (n.nodeName === 'RUBY'))){ run.unshift(n); n = n.previousSibling; }
+      n = rb.nextSibling;
+      while (n && (n.nodeType === 3 || (n.nodeName === 'RUBY'))){ run.push(n); n = n.nextSibling; }
+      if (run.length < 2) return;
+      var g = document.createElement('span'); g.className = 'jp-g';
+      rb.parentNode.insertBefore(g, run[0]); run.forEach(function(x){ g.appendChild(x); });
+    });
+    el.classList.add('jp-ph');
+  }
+
+  // 中の文字が1つの流れになっている箱だけ触る（flex・grid の箱は、印を入れると横に並んでしまう）
+  function flowing(el){ return !/flex|grid/.test(getComputedStyle(el).display) && !el.querySelector('div,p,ul,ol,li,section'); }
+  function fixWidows(scope){
+    var els = [].filter.call(scope.querySelectorAll(SEL), flowing);
+    phraseAll(els);
+    els.forEach(function(el){
+      if (el.querySelector('img,[data-t]') || el.querySelector('.nw')) return;
+      var L = lines(el); if (L.length < 2) return;
+      var fs = parseFloat(getComputedStyle(el).fontSize), last = L[L.length - 1];
+      var chars = Math.round((last.r - last.l) / fs);
+      if (chars > 2) return;
+      var b0 = box(el), sp = wrapTail(el, chars + 3);
+      if (!sp) return;
+      var L2 = lines(el), l2 = L2[L2.length - 1];
+      // 行が増えた・はみ出した・まだ短いときは元に戻す
+      if (L2.length > L.length || el.scrollWidth > el.clientWidth + 1 || (l2.r - l2.l) < fs * 1.5 || box(el) !== b0){
+        unwrap(sp); if (el.classList.contains('jp-ph')){ el.classList.remove('jp-ph'); phraseRaw(el); }   // 外した wbr を付け直す
+      }
+    });
+  }
+
+  // 表紙：キャラが見出し・リードの文字に重なっていたら、文字の下へずらす（入らなければ縮める）
+  // 目に見える中身の箱（枠や背景のある箱はそのまま、ない入れ物は中の文字と牌）
+  function inked(el){
+    var cs = getComputedStyle(el);
+    if (parseFloat(cs.borderTopWidth) > 0 || cs.backgroundColor !== 'rgba(0, 0, 0, 0)') return [el.getBoundingClientRect()];
+    var out = lines(el).map(function(x){ return {left:x.l, right:x.r, top:x.t, bottom:x.b}; });
+    [].forEach.call(el.querySelectorAll('[data-t],img'), function(t){ out.push(t.getBoundingClientRect()); });
+    return out;
+  }
+  function placeCover(){
+    var c = document.querySelector('.stage .c'); if (!c) return;
+    var body = c.querySelector('.body'), br = body.getBoundingClientRect();
+    [].forEach.call(c.querySelectorAll('img.ch'), function(im){
+      var ir = im.getBoundingClientRect(); if (!ir.width || !ir.height) return;
+      var L = [], obst = [];
+      [].forEach.call(body.querySelectorAll('.no,.h,.p'), function(el){ L = L.concat(lines(el)); });
+      [].forEach.call(body.children, function(ch){
+        if (ch === im || ch.tagName === 'TEMPLATE' || ch.matches('.no,.h,.p')) return;
+        obst = obst.concat(inked(ch));
+      });
+      var h = ir.height, wdt = ir.width, gap = 8;
+      // 画像の左右の透明な余白を除いた、キャラ（とボード）の幅。右端は固定なので右から測る
+      var coreL = function(){ return ir.right - wdt * .94; }, coreR = ir.right - wdt * .1;
+      var top = ir.top - br.top, moved = false;
+      for (var k = 0; k < 6; k++){      // 文字にかぶる限り、下へずらす
+        var low = null, t = br.top + top, b = t + h, l = coreL();
+        L.forEach(function(x){ if (x.r > l - gap && x.l < coreR && x.b > t && x.t < b) low = Math.max(low || 0, x.b); });
+        if (low === null) break;
+        top = low - br.top + 14; moved = true;
+      }
+      if (!moved) return;
+      var limit = br.height - 12, l2 = coreL();
+      obst.forEach(function(r){
+        if (r.bottom - br.top > top && r.right > l2 && r.left < coreR && r.top - br.top < limit) limit = Math.max(top + 1, r.top - br.top - 8);
+      });
+      if (top + h > limit){ var s = Math.max(.75, (limit - top) / h); wdt *= s; h *= s; }
+      im.style.top = Math.round(top) + 'px'; im.style.bottom = 'auto'; im.style.width = Math.round(wdt) + 'px';
+    });
+  }
+
+  // ── キャラ画像：実際の輪郭（透明を除いた形）で、文字・枠・ボタンに触れていないかを見る ──
+  function mask(im){
+    if (im.__m) return im.__m;
+    var W = 60, H = Math.max(1, Math.round(W * (im.naturalHeight || 1) / (im.naturalWidth || 1)));
+    var c = document.createElement('canvas'); c.width = W; c.height = H;
+    var x = c.getContext('2d'); x.drawImage(im, 0, 0, W, H);
+    var d = x.getImageData(0, 0, W, H).data, rows = [];
+    for (var yy = 0; yy < H; yy++){ var l = -1, r = -1;
+      for (var xx = 0; xx < W; xx++) if (d[(yy * W + xx) * 4 + 3] > 60){ if (l < 0) l = xx; r = xx; }
+      rows.push([l / W, (r + 1) / W]); }
+    return (im.__m = rows);
+  }
+  // 画像の輪郭が四角 r に触れるか（pad = 空けたいすき間）
+  function touches(im, r, pad){
+    var q = im.getBoundingClientRect(), m = mask(im), H = m.length, sy = q.height / H;
+    for (var yy = 0; yy < H; yy++){ var row = m[yy]; if (row[0] < 0) continue;
+      var t = q.top + yy * sy, b = t + sy, L = q.left + row[0] * q.width, R = q.left + row[1] * q.width;
+      if (b > r.top - pad && t < r.bottom + pad && R > r.left - pad && L < r.right + pad) return true; }
+    return false;
+  }
+  // 輪郭のうち、高さ y0〜y1 の範囲でいちばん左の x
+  function leftAt(im, y0, y1){
+    var q = im.getBoundingClientRect(), m = mask(im), H = m.length, sy = q.height / H, L = Infinity;
+    for (var yy = 0; yy < H; yy++){ var row = m[yy]; if (row[0] < 0) continue;
+      var t = q.top + yy * sy; if (t + sy > y0 && t < y1) L = Math.min(L, q.left + row[0] * q.width); }
+    return L;
+  }
+  // カードの中で、キャラが避けるべきもの（文字の行・枠のある箱・ボタン・牌）
+  function obstacles(body, im){
+    var out = [];
+    var w = document.createTreeWalker(body, NodeFilter.SHOW_TEXT), rg = document.createRange();
+    while (w.nextNode()){ var t = w.currentNode; if (!t.textContent.trim() || t.parentNode.closest('rt,template')) continue;
+      rg.selectNodeContents(t); [].forEach.call(rg.getClientRects(), function(q){ if (q.width > 1) out.push({r: q, pad: 12}); }); }
+    [].forEach.call(body.querySelectorAll('*'), function(el){
+      if (el === im || el.contains(im) || el.closest('template') || el.matches('.end')) return;
+      var cs = getComputedStyle(el), bg = cs.backgroundColor;
+      var boxy = parseFloat(cs.borderTopWidth) > 0 || parseFloat(cs.borderLeftWidth) > 2 ||
+                 (bg !== 'rgba(0, 0, 0, 0)' && bg !== 'rgb(251, 248, 241)') || el.matches('[data-t],button');
+      if (boxy){ var r = el.getBoundingClientRect(); if (r.width > 1) out.push({r: r, pad: 6}); }
+    });
+    return out;
+  }
+  // 触れていたら、止めてある側（上か下）を動かさずに少しずつ縮める
+  function clearChars(){
+    [].forEach.call(document.querySelectorAll('.stage .c'), function(c){
+      var body = c.querySelector('.body');
+      [].forEach.call(c.querySelectorAll('img.ch'), function(im){
+        if (!im.complete || !im.naturalWidth) return;
+        var obs = obstacles(body, im), hit = function(){ return obs.some(function(o){ return touches(im, o.r, o.pad); }); };
+        if (!hit()) return;
+        var st = im.getAttribute('style') || '', bottomAnchored = /bottom\s*:/.test(st) && !/top\s*:\s*\d/.test(st);
+        var br = body.getBoundingClientRect(), w0 = im.getBoundingClientRect().width, h0 = im.getBoundingClientRect().height;
+        var top0 = im.getBoundingClientRect().top - br.top;
+        for (var s = .96; s >= .6; s -= .04){
+          im.style.width = Math.round(w0 * s) + 'px';
+          if (!bottomAnchored){ im.style.top = Math.round(top0) + 'px'; im.style.bottom = 'auto'; }
+          if (!hit()) return;
+        }
+        // 縮めるだけで空かないときは、大きさを戻して、近い順に上下へずらして空いている所を探す
+        for (var s2 = 1; s2 >= .6; s2 -= .08){
+          var ww = Math.round(w0 * s2), hh = h0 * s2;
+          im.style.width = ww + 'px'; im.style.bottom = 'auto';
+          for (var k = 0; k <= 40; k++){
+            var d = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 8, tp = top0 + (bottomAnchored ? h0 - hh : 0) + d;
+            if (tp < 0 || tp + hh > br.height - 4) continue;
+            im.style.top = Math.round(tp) + 'px';
+            if (!hit()) return;
+          }
+        }
+        // どこにも空きがない（表示の高さが短いスマホなど）なら、キャラは出さない。文字を隠すよりよい
+        im.style.display = 'none';
+      });
+      // 区切り線（.end の上の線）は、キャラの手前で止める
+      [].forEach.call(c.querySelectorAll('.end'), function(e){
+        var er = e.getBoundingClientRect(), bw = parseFloat(getComputedStyle(e).borderTopWidth); if (!bw) return;
+        var L = Infinity;
+        [].forEach.call(c.querySelectorAll('img.ch'), function(im){ if (im.complete && im.naturalWidth) L = Math.min(L, leftAt(im, er.top - 2, er.top + bw + 2)); });
+        if (L > er.right) return;
+        var len = Math.max(0, Math.round(L - er.left - 14));
+        e.setAttribute('data-line', len);
+        e.style.borderTopColor = 'transparent';
+        e.style.backgroundImage = 'linear-gradient(var(--ink),var(--ink))';
+        e.style.backgroundRepeat = 'no-repeat';
+        e.style.backgroundSize = len + 'px ' + bw + 'px';
+        e.style.backgroundPosition = '0 0';
+        e.style.backgroundOrigin = 'border-box';
+      });
+    });
+  }
+
+  // ── 「もっと詳しく」：左右に並べた行が折れたら、その箱の全部の行を「小見出し＋本文」の縦並びにそろえる ──
+  function fixCalc(scope){
+    [].forEach.call(scope.querySelectorAll('.calc'), function(calc){
+      calc.classList.remove('calc-v');
+      var need = [].some.call(calc.querySelectorAll('.r'), function(r){
+        var a = r.querySelector(':scope>span'), b = r.querySelector(':scope>b'); if (!a || !b) return false;
+        var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+        return rb.top >= ra.bottom - 4 || lines(b).length > 1 || lines(a).length > 1;
+      });
+      if (need) calc.classList.add('calc-v');
+    });
+  }
+  // 表：短い値は折らない。長い見出しの列は文節で折る
+  function fixTables(scope){
+    [].forEach.call(scope.querySelectorAll('table'), function(tb){
+      [].forEach.call(tb.querySelectorAll('td,th'), function(td){
+        var tx = td.textContent.replace(/\s+/g, '');
+        if (tx.length <= 6) td.classList.add('nw1'); else phraseRaw(td);
+      });
+      var wrap = tb.parentElement;
+      if (tb.scrollWidth > wrap.clientWidth + 1) [].forEach.call(tb.querySelectorAll('.nw1'), function(td){ td.classList.remove('nw1'); });
+    });
+  }
+  function polishPanel(scope){
+    var t = document.querySelector('#more .ph b');
+    if (t){ t.classList.remove('jp-ph', 'jp-skip'); fixWidows(t.parentNode); }
+    fixTables(scope); fixCalc(scope); fixWidows(scope); fixCalc(scope);
+  }
+
+  // 幅が変わったとき（回転など）は、位置の直しを最初からやり直す
+  function reset(){
+    [].forEach.call(document.querySelectorAll('.nw'), unwrap);
+    [].forEach.call(document.querySelectorAll('img.ch[data-os]'), function(im){ im.setAttribute('style', im.getAttribute('data-os')); });
+    [].forEach.call(document.querySelectorAll('img.ch'), function(im){ if (!im.hasAttribute('data-os')) im.setAttribute('data-os', im.getAttribute('style') || ''); });
+    [].forEach.call(document.querySelectorAll('.end[data-line]'), function(e){
+      ['borderTopColor','backgroundImage','backgroundRepeat','backgroundSize','backgroundPosition','backgroundOrigin'].forEach(function(k){ e.style[k] = ''; });
+      e.removeAttribute('data-line'); });
+  }
+  function run(){
+    var t0 = Date.now();
+    try {
+      reset();
+      fixWidows(document.querySelector('.stage') || document.body);
+      placeCover();
+      clearChars();
+    } finally { root.classList.remove('polishing'); root.setAttribute('data-polish-ms', Date.now() - t0); }
+  }
+  // 文字の読み込みが遅くても、読み込みが終わったら必ずやり直す
+  var ran = false;
+  function first(){ if (!ran){ ran = true; run(); } }
+  window.addEventListener('load', first);
+  setTimeout(first, 2500);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ ran = true; run(); });
+  var lastW = window.innerWidth, tm = null;
+  window.addEventListener('resize', function(){
+    if (window.innerWidth === lastW) return; lastW = window.innerWidth;
+    clearTimeout(tm); tm = setTimeout(function(){ run(); var pb = document.querySelector('#more .pb'); if (pb && pb.childNodes.length) polishPanel(pb); }, 200);
+  });
+
+  // 「もっと詳しく」は開くたびに中身が作られるので、そのつど整える
+  var more = document.querySelector('#more .pb');
+  if (more && window.MutationObserver) new MutationObserver(function(){ requestAnimationFrame(function(){ polishPanel(more); }); }).observe(more, {childList:true});
+})();
+
+// 見やすさ v2（2026-10-03）：カードの空いた高さを使って、図（.fig／問題の手牌／手順）をまるごと拡大する。最大1.25倍。
+// はみ出す・横にはみ出す・牌の行が増える・空きが40pxを切る・キャラに重なる、のどれかで1段戻す
+(function(){
+  function lines(s){ var n=0; s.querySelectorAll('.zf').forEach(function(z){ var tops={}; z.querySelectorAll('.tile').forEach(function(t){ tops[Math.round(t.getBoundingClientRect().top/8)]=1; }); n+=Object.keys(tops).length; }); return n; }
+  function fit1(s){
+    var b=s.querySelector('.body'); if(!b) return;
+    var tg=[].filter.call(b.children,function(k){ return k.matches('.fig,.box.hand,.steps'); });
+    if(!tg.length) return;
+    tg.forEach(function(k){ k.classList.add('zf'); }); s.style.setProperty('--z',1);
+    var free=function(){var used=0;[].forEach.call(b.children,function(k){if(k.tagName!=='TEMPLATE'&&k.offsetParent!==null&&getComputedStyle(k).position!=='absolute'){used+=k.getBoundingClientRect().height;}});return b.clientHeight-used;};
+    var R=function(){return s.getBoundingClientRect();};
+    var wide=function(){ var r0=R(); return [].some.call(b.querySelectorAll('*'),function(e){var r=e.getBoundingClientRect();return r.width>0&&r.right>r0.right+1;}); };
+    var chHit=function(){ var ch=b.querySelector('img.ch'); if(!ch) return false; var c=ch.getBoundingClientRect(), rs=[];
+      var tw=document.createTreeWalker(b,NodeFilter.SHOW_TEXT), n;
+      while((n=tw.nextNode())){ if(!n.textContent.trim()||n.parentElement.closest('rt,template')) continue; var rg=document.createRange(); rg.selectNodeContents(n); [].forEach.call(rg.getClientRects(),function(q){ if(q.width>1) rs.push(q); }); }
+      [].forEach.call(b.querySelectorAll('.box,.tile'),function(e){ if(!e.contains(ch)) rs.push(e.getBoundingClientRect()); });
+      return rs.some(function(r){ return Math.min(r.right,c.right-14)-Math.max(r.left,c.left+14)>0 && Math.min(r.bottom,c.bottom-14)-Math.max(r.top,c.top+14)>0; }); };
+    var hit0=chHit(), l0=lines(s);
+    var bad=function(){ return s.scrollHeight>s.clientHeight+1 || free()<40 || lines(s)>l0 || wide() || (!hit0 && chHit()); };
+    var z=1;
+    while(z<1.25 && free()>90){ z=Math.round((z+0.05)*100)/100; s.style.setProperty('--z',z); if(bad()){ z=Math.round((z-0.05)*100)/100; s.style.setProperty('--z',z); break; } }
+  }
+  function fit(){ document.querySelectorAll('section.c').forEach(fit1); }
+  window.addEventListener('load',function(){setTimeout(fit,300)});
+  window.addEventListener('resize',function(){clearTimeout(window._ft);window._ft=setTimeout(fit,200)});
+  if(document.fonts) document.fonts.ready.then(function(){setTimeout(fit,300)});
+})();
+</script>
+</body></html>

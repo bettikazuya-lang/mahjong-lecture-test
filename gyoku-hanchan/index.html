@@ -402,6 +402,18 @@ body{margin:0;background:#E7E3D8;color:var(--ink);overflow:hidden;font-family:'Z
 .dt .verdict rt{color:rgba(255,255,255,.72)}
 .dt .verdict b{line-height:1.3}
 .jp-g{white-space:nowrap}
+
+/* 見やすさ v2（2026-10-03）：①小さすぎる字の下限を上げる ②カードの空いた高さの分だけ、図をまるごと拡大する（polish.js が --z を付ける）。
+   図の補足は、まとめの一言（18px）を超えないよう、拡大は最大1.25倍 */
+.fl .t2{font-size:13.5px;line-height:1.5}
+.fl .lv,.ladder .lv{font-size:12.5px}
+.sp .t2{font-size:14px}
+.hand-cap{font-size:14px;line-height:1.6}
+.grow .gh span{font-size:13px}
+.lbk small{font-size:11.5px}
+.rank .nm small{font-size:12.5px}
+.sit{font-size:15px}
+.zf{zoom:var(--z,1)}
 </style>
 </head><body>
 <div id="deck">
@@ -1307,6 +1319,34 @@ renderTiles(); document.fonts && document.fonts.ready.then(function(){renderTile
   // 「もっと詳しく」は開くたびに中身が作られるので、そのつど整える
   var more = document.querySelector('#more .pb');
   if (more && window.MutationObserver) new MutationObserver(function(){ requestAnimationFrame(function(){ polishPanel(more); }); }).observe(more, {childList:true});
+})();
+
+// 見やすさ v2（2026-10-03）：カードの空いた高さを使って、図（.fig／問題の手牌／手順）をまるごと拡大する。最大1.25倍。
+// はみ出す・横にはみ出す・牌の行が増える・空きが40pxを切る・キャラに重なる、のどれかで1段戻す
+(function(){
+  function lines(s){ var n=0; s.querySelectorAll('.zf').forEach(function(z){ var tops={}; z.querySelectorAll('.tile').forEach(function(t){ tops[Math.round(t.getBoundingClientRect().top/8)]=1; }); n+=Object.keys(tops).length; }); return n; }
+  function fit1(s){
+    var b=s.querySelector('.body'); if(!b) return;
+    var tg=[].filter.call(b.children,function(k){ return k.matches('.fig,.box.hand,.steps'); });
+    if(!tg.length) return;
+    tg.forEach(function(k){ k.classList.add('zf'); }); s.style.setProperty('--z',1);
+    var free=function(){var used=0;[].forEach.call(b.children,function(k){if(k.tagName!=='TEMPLATE'&&k.offsetParent!==null&&getComputedStyle(k).position!=='absolute'){used+=k.getBoundingClientRect().height;}});return b.clientHeight-used;};
+    var R=function(){return s.getBoundingClientRect();};
+    var wide=function(){ var r0=R(); return [].some.call(b.querySelectorAll('*'),function(e){var r=e.getBoundingClientRect();return r.width>0&&r.right>r0.right+1;}); };
+    var chHit=function(){ var ch=b.querySelector('img.ch'); if(!ch) return false; var c=ch.getBoundingClientRect(), rs=[];
+      var tw=document.createTreeWalker(b,NodeFilter.SHOW_TEXT), n;
+      while((n=tw.nextNode())){ if(!n.textContent.trim()||n.parentElement.closest('rt,template')) continue; var rg=document.createRange(); rg.selectNodeContents(n); [].forEach.call(rg.getClientRects(),function(q){ if(q.width>1) rs.push(q); }); }
+      [].forEach.call(b.querySelectorAll('.box,.tile'),function(e){ if(!e.contains(ch)) rs.push(e.getBoundingClientRect()); });
+      return rs.some(function(r){ return Math.min(r.right,c.right-14)-Math.max(r.left,c.left+14)>0 && Math.min(r.bottom,c.bottom-14)-Math.max(r.top,c.top+14)>0; }); };
+    var hit0=chHit(), l0=lines(s);
+    var bad=function(){ return s.scrollHeight>s.clientHeight+1 || free()<40 || lines(s)>l0 || wide() || (!hit0 && chHit()); };
+    var z=1;
+    while(z<1.25 && free()>90){ z=Math.round((z+0.05)*100)/100; s.style.setProperty('--z',z); if(bad()){ z=Math.round((z-0.05)*100)/100; s.style.setProperty('--z',z); break; } }
+  }
+  function fit(){ document.querySelectorAll('section.c').forEach(fit1); }
+  window.addEventListener('load',function(){setTimeout(fit,300)});
+  window.addEventListener('resize',function(){clearTimeout(window._ft);window._ft=setTimeout(fit,200)});
+  if(document.fonts) document.fonts.ready.then(function(){setTimeout(fit,300)});
 })();
 </script>
 </body></html>
